@@ -112,6 +112,12 @@ function PlannerDemo() {
   const [budget, setBudget] = useState(3000);
   const [goal, setGoal] = useState("Low Maintenance");
 
+  const [plannerEmail, setPlannerEmail] = useState("");
+  const [plannerStatus, setPlannerStatus] = useState("idle");
+  const [plannerMessage, setPlannerMessage] = useState("");
+
+  const FORMSPREE_ENDPOINT = "https://formspree.io/f/xzdqpqpp";
+
   const score = useMemo(() => {
     const base = space === "Balcony" ? 72 : space === "Courtyard" ? 78 : 86;
     const boost = budget > 5000 ? 8 : budget > 1500 ? 4 : 0;
@@ -119,6 +125,60 @@ function PlannerDemo() {
   }, [space, budget, goal]);
 
   const recommended = space === "Balcony" ? "ResonaLoop Tower Mini" : budget > 5000 ? "Custom Managed Backyard" : "Smart Loop Starter Pack";
+
+  async function handlePlannerSubmit(event) {
+    event.preventDefault();
+
+    if (!plannerEmail.trim()) {
+      setPlannerStatus("error");
+      setPlannerMessage("Please enter your email address.");
+      return;
+    }
+
+    setPlannerStatus("loading");
+    setPlannerMessage("Sending your AI plan request...");
+
+    try {
+      const response = await fetch(FORMSPREE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          formType: "AI Planner Request",
+          space,
+          budget,
+          goal,
+          recommended,
+          loopPotentialScore: score,
+          weeklyCare: space === "Balcony" ? "9 minutes" : "18 minutes",
+          waterLoopScore: goal === "Water Saving" ? 92 : 81,
+          estimatedYield: space === "Balcony" ? "1.4kg" : "4.8kg",
+          estimatedWasteCut: budget > 1500 ? "5.2kg" : "2.1kg",
+          email: plannerEmail,
+          source: "ResonaLoop AI Planner",
+        }),
+      });
+
+      if (response.ok) {
+        setPlannerStatus("success");
+        setPlannerMessage(
+          "Your ResonaLoop plan request has been registered. We’ll send you the next-step pathway soon."
+        );
+        setPlannerEmail("");
+      } else {
+        const data = await response.json().catch(() => null);
+        setPlannerStatus("error");
+        setPlannerMessage(
+          data?.errors?.[0]?.message || "Something went wrong. Please try again."
+        );
+      }
+    } catch (error) {
+      setPlannerStatus("error");
+      setPlannerMessage("Network error. Please check your connection and try again.");
+    }
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
@@ -183,6 +243,52 @@ function PlannerDemo() {
               <div className="flex gap-3"><span className="font-semibold text-emerald-700">04</span> Generate ESG impact and upgrade pathway</div>
             </div>
           </div>
+
+          <form
+            onSubmit={handlePlannerSubmit}
+            className="mt-5 rounded-3xl border border-emerald-900/10 bg-white/80 p-5 shadow-sm"
+          >
+            <div className="text-sm font-semibold text-slate-950">
+              Send me this AI plan
+            </div>
+
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Get this suggested pathway registered as an early ResonaLoop planning request.
+            </p>
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <input
+                type="email"
+                value={plannerEmail}
+                onChange={(e) => setPlannerEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="min-w-0 flex-1 rounded-2xl border border-emerald-900/10 bg-white px-4 py-3 text-slate-900 outline-none focus:border-emerald-500/60"
+              />
+
+              <button
+                type="submit"
+                disabled={plannerStatus === "loading"}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-900 px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_45px_rgba(18,92,61,0.16)] hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {plannerStatus === "loading" ? "Sending..." : "Send plan"}
+                <Send size={16} />
+              </button>
+            </div>
+
+            {plannerMessage && (
+              <div
+                className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
+                  plannerStatus === "success"
+                    ? "border-emerald-700/20 bg-emerald-50 text-emerald-900"
+                    : plannerStatus === "error"
+                    ? "border-red-700/20 bg-red-50 text-red-800"
+                    : "border-slate-300 bg-slate-50 text-slate-700"
+                }`}
+              >
+                {plannerMessage}
+              </div>
+            )}
+          </form>
         </div>
       </motion.div>
     </div>
